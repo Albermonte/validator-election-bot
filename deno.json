@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "start": "deno run -IN --allow-read --allow-write --allow-env --unstable-kv bot.ts",
     "dev": "deno run -IN --allow-read --allow-write --allow-env --unstable-kv --watch bot.ts"
   },
   "imports": {
