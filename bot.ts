@@ -82,6 +82,10 @@ bot.command("address", async (ctx) => {
 bot.command("status", async (ctx) => {
   const chatId = ctx.chat.id;
   const validator = await kv.get([chatId, "address"]);
+  if (!validator.value) {
+    await ctx.reply("No address set. Use /start to set one.");
+    return;
+  }
   const { data: height, error: heightError } = await client.blockchain.getBlockNumber();
   if (heightError) {
     console.error(heightError);
