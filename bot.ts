@@ -150,7 +150,6 @@ next(({ error, data: block }) => {
     console.error(error);
     return;
   }
-  console.log(block);
   findSlots(block);
 })
 
