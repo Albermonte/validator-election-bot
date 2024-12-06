@@ -178,10 +178,10 @@ async function slotsPerValidator(address: string, chatId: number, block: Block) 
   if (assignedSlot) {
     const { numSlots } = assignedSlot;
     console.log(`Validator ${address} has been assigned ${numSlots} slot${numSlots === 1 ? '' : 's'}.`);
-    await bot.api.sendMessage(chatId, `Validator <code>${address}</code> has been assigned <b>${numSlots} slot${numSlots === 1 ? '' : 's'}</b> in epoch ${block.epoch}`, { parse_mode: "HTML" });
+    await bot.api.sendMessage(chatId, `Validator <code>${address}</code> has been assigned <b>${numSlots} slot${numSlots === 1 ? '' : 's'}</b> in epoch ${block.epoch + 1}`, { parse_mode: "HTML" });
   } else {
     console.log(`Validator ${address} has not been assigned any slots.`);
-    await bot.api.sendMessage(chatId, `Validator <code>${address}</code> has not been assigned any slots in epoch ${block.epoch} 🥲`, { parse_mode: "HTML" });
+    await bot.api.sendMessage(chatId, `Validator <code>${address}</code> has not been assigned any slots in epoch ${block.epoch + 1} 🥲`, { parse_mode: "HTML" });
   }
 
   const { rewardAddress } = data;
