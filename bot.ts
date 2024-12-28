@@ -193,12 +193,12 @@ async function slotsPerValidator(address: string, chatId: number, block: Block) 
 async function getRewardsFromValidator(rewardAddress: string) {
   const { data: account, error: accountError } = await client.blockchain.getAccountByAddress(rewardAddress, { withMetadata: false });
   const { data: staker, error: stakerError } = await client.blockchain.getStakerByAddress(rewardAddress);
-  if (accountError || stakerError) {
+  if (accountError) {
     console.error({ accountError, stakerError });
     return { USD: 0, NIM: 0 };
   }
   
-  const balance = (account.balance + staker.balance) / 1e5;
+  const balance = (account.balance + (staker?.balance || 0)) / 1e5;
   const NIM = Math.round(balance * 100) / 100;
   
   const { nim: { usd: price } } = await getExchangeRates([CryptoCurrency.NIM], [FiatCurrency.USD]);
