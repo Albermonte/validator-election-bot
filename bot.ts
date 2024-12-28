@@ -55,19 +55,19 @@ bot.command("start", async (ctx) => {
     ctx.chat.id,
     ctx.from?.id,
   );
-  if (chatMember.status !== "creator" && chatMember.status !== "administrator") {
+  if (ctx.chat.type !== 'private' && chatMember.status !== "creator" && chatMember.status !== "administrator") {
     await ctx.reply("You need to be an admin to use this bot.");
     return;
   }
   await ctx.conversation.enter("addValidator", { overwrite: true });
 });
 
-bot.command("address", async (ctx) => {
+bot.command("validator", async (ctx) => {
   const chatMember = await ctx.chatMembers.getChatMember(
     ctx.chat.id,
     ctx.from?.id,
   );
-  if (chatMember.status !== "creator" && chatMember.status !== "administrator") {
+  if (ctx.chat.type !== 'private' && chatMember.status !== "creator" && chatMember.status !== "administrator") {
     await ctx.reply("You need to be an admin to use this bot.");
     return;
   }
@@ -121,8 +121,8 @@ bot.command("money", async (ctx) => {
     return;
   }
   const { rewardAddress } = data;
-  const { USD, NIM } = await getRewardsFromValidator(rewardAddress);
-  await ctx.reply(`Validator total rewards:\n <b>${NIM} NIM</b>\n <b>${USD} USD</b>`, { parse_mode: "HTML" });
+  const { USD, NIM, price } = await getRewardsFromValidator(rewardAddress);
+  await ctx.reply(`Validator total rewards:\n <b>${NIM} NIM</b>\n <b>${USD} USD</b>\n\n Price:\n <b>${price} NIM/USD</b>`, { parse_mode: "HTML" });
 });
 
 bot.command("remove", async (ctx) => {
@@ -130,7 +130,7 @@ bot.command("remove", async (ctx) => {
     ctx.chat.id,
     ctx.from?.id,
   );
-  if (chatMember.status !== "creator" && chatMember.status !== "administrator") {
+  if (ctx.chat.type !== 'private' && chatMember.status !== "creator" && chatMember.status !== "administrator") {
     await ctx.reply("You need to be an admin to use this bot.");
     return;
   }
@@ -185,9 +185,9 @@ async function slotsPerValidator(address: string, chatId: number, block: Block) 
   }
 
   const { rewardAddress } = data;
-  const { USD, NIM } = await getRewardsFromValidator(rewardAddress);
+  const { USD, NIM, price } = await getRewardsFromValidator(rewardAddress);
   console.log(`Validator ${address} has a balance of ${NIM} NIM (${USD} USD)`);
-  await bot.api.sendMessage(chatId, `Validator total rewards:\n <b>${NIM} NIM</b>\n <b>${USD} USD</b>`, { parse_mode: "HTML" });
+  await bot.api.sendMessage(chatId, `Validator total rewards:\n <b>${NIM} NIM</b>\n <b>${USD} USD</b>\n\n Price:\n <b>${price} NIM/USD</b>`, { parse_mode: "HTML" });
 }
 
 async function getRewardsFromValidator(rewardAddress: string) {
@@ -207,5 +207,5 @@ async function getRewardsFromValidator(rewardAddress: string) {
 
   const USD = Math.round((balance * price + Number.EPSILON) * 100) / 100;
 
-  return { USD, NIM };
+  return { USD, NIM, price };
 }
