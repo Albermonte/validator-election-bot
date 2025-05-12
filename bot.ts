@@ -2,10 +2,10 @@ import { Bot, Context, session, MemorySessionStorage } from "https://deno.land/x
 import { type ChatMember } from "https://deno.land/x/grammy@v1.32.0/types.ts";
 import { chatMembers, type ChatMembersFlavor, } from "https://deno.land/x/grammy_chat_members/mod.ts";
 import { type Conversation, type ConversationFlavor, conversations, createConversation } from "https://deno.land/x/grammy_conversations@v1.2.0/mod.ts";
-import { NimiqRPCClient } from "npm:nimiq-rpc-client-ts"
+import { NimiqRPCClient } from "npm:@albermonte/nimiq-rpc-client-ts"
 import { ValidationUtils, getExchangeRates, FiatCurrency, CryptoCurrency } from "npm:@nimiq/utils"
 import "jsr:@std/dotenv/load";
-import { Block } from "npm:nimiq-rpc-client-ts";
+import { Block } from "npm:@albermonte/nimiq-rpc-client-ts";
 
 type Kv = {
   key: [number, string];
