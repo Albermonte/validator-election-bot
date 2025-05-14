@@ -2,10 +2,13 @@ import { Bot, Context, session, MemorySessionStorage } from "https://deno.land/x
 import { type ChatMember } from "https://deno.land/x/grammy@v1.32.0/types.ts";
 import { chatMembers, type ChatMembersFlavor, } from "https://deno.land/x/grammy_chat_members/mod.ts";
 import { type Conversation, type ConversationFlavor, conversations, createConversation } from "https://deno.land/x/grammy_conversations@v1.2.0/mod.ts";
-import { NimiqRPCClient } from "npm:@albermonte/nimiq-rpc-client-ts"
-import { ValidationUtils, getExchangeRates, FiatCurrency, CryptoCurrency } from "npm:@nimiq/utils"
+import { getBlockNumber, getElectionBlockBefore, getBlockByNumber, getValidatorByAddress,  getAccountByAddress, getStakerByAddress } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta.26/http";
+import { subscribeForHeadBlock } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta.26/ws";
+import { initRpcClient } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta.26/client";
+import type { Block } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta.26/types";
+
+import { ValidationUtils, getExchangeRates, FiatCurrency, CryptoCurrency } from "npm:@nimiq/utils";
 import "jsr:@std/dotenv/load";
-import { Block } from "npm:@albermonte/nimiq-rpc-client-ts";
 
 type Kv = {
   key: [number, string];
@@ -16,7 +19,7 @@ const token = Deno.env.get("TELEGRAM_BOT_TOKEN");
 if (!token)
   throw new Error("TELEGRAM_BOT_TOKEN is required.");
 
-const client = new NimiqRPCClient(new URL(Deno.env.get("NIMIQ_RPC_URL") || "http://localhost:8648"));
+initRpcClient({ url: Deno.env.get("NIMIQ_RPC_URL") || "http://localhost:8648" });
 const kv = await Deno.openKv("./kv.db");
 
 type MyContext = Context & ConversationFlavor & ChatMembersFlavor;
@@ -86,20 +89,23 @@ bot.command("status", async (ctx) => {
     await ctx.reply("No address set. Use /start to set one.");
     return;
   }
-  const { data: height, error: heightError } = await client.blockchain.getBlockNumber();
-  if (heightError) {
+  
+  const [heightSuccess, heightError, height] = await getBlockNumber();
+  if (!heightSuccess) {
     console.error(heightError);
     ctx.reply("Unable to get the info right now, please try again later.");
     return;
   }
-  const { data: electionHeight, error: electionError } = await client.policy.getElectionBlockBefore(height);
-  if (electionError) {
+  
+  const [electionSuccess, electionError, electionHeight] = await getElectionBlockBefore({blockNumber:height});
+  if (!electionSuccess) {
     console.error(electionError);
     ctx.reply("Unable to get the info right now, please try again later.");
     return;
   }
-  const { data: electionBlock, error: blockError } = await client.blockchain.getBlockByNumber(electionHeight, { includeBody: true });
-  if (blockError) {
+  
+  const [blockSuccess, blockError, electionBlock] = await getBlockByNumber({blockNumber: electionHeight, includeBody: true });
+  if (!blockSuccess) {
     console.error(blockError);
     ctx.reply("Unable to get the info right now, please try again later.");
     return;
@@ -114,8 +120,9 @@ bot.command("money", async (ctx) => {
     await ctx.reply("No address set. Use /start to set one.");
     return;
   }
-  const { data, error } = await client.blockchain.getValidatorByAddress(validator.value as string);
-  if (error) {
+  
+  const [success, error, data] = await getValidatorByAddress({address:validator.value as string});
+  if (!success) {
     console.error(error);
     ctx.reply("Unable to get the info right now, please try again later.");
     return;
@@ -143,15 +150,13 @@ bot.start({
   allowed_updates: ["chat_member", "message"],
 });
 
-const { next } = await client.blockchainStreams.subscribeForElectionBlocks();
+const subscription = await subscribeForHeadBlock();
 
-next(({ error, data: block }) => {
-  if (error) {
-    console.error(error);
-    return;
-  }
+subscription.addEventListener('data', (event) => {
+  const { data: block } = event.detail;
+  if (!block || !block.isElectionBlock) return;
   findSlots(block);
-})
+});
 
 async function findSlots(block: Block) {
   const validators = (await Array.fromAsync(kv.list({ prefix: [] }))) as unknown as Kv[];
@@ -167,14 +172,15 @@ async function slotsPerValidator(address: string, chatId: number, block: Block) 
     return;
   if (!block.isElectionBlock)
     return;
-  const { slots } = block
+  const { slots } = block;
 
   const assignedSlot = slots.find(slot => slot.validator === address);
-  const { data, error } = await client.blockchain.getValidatorByAddress(address);
-  if (error) {
+  const [success, error, data] = await getValidatorByAddress({address});
+  if (!success) {
     console.error(error);
-    return
+    return;
   }
+  
   if (assignedSlot) {
     const { numSlots } = assignedSlot;
     console.log(`Validator ${address} has been assigned ${numSlots} slot${numSlots === 1 ? '' : 's'}.`);
@@ -191,11 +197,12 @@ async function slotsPerValidator(address: string, chatId: number, block: Block) 
 }
 
 async function getRewardsFromValidator(rewardAddress: string) {
-  const { data: account, error: accountError } = await client.blockchain.getAccountByAddress(rewardAddress, { withMetadata: false });
-  const { data: staker, error: stakerError } = await client.blockchain.getStakerByAddress(rewardAddress);
-  if (accountError) {
+  const [accountSuccess, accountError, account] = await getAccountByAddress({ address:rewardAddress });
+  const [stakerSuccess, stakerError, staker] = await getStakerByAddress({ address:rewardAddress });
+  
+  if (!accountSuccess || !stakerSuccess) {
     console.error({ accountError, stakerError });
-    return { USD: 0, NIM: 0 };
+    return { USD: 0, NIM: 0, price: 0 };
   }
   
   const balance = (account.balance + (staker?.balance || 0)) / 1e5;
@@ -203,7 +210,7 @@ async function getRewardsFromValidator(rewardAddress: string) {
   
   const { nim: { usd: price } } = await getExchangeRates([CryptoCurrency.NIM], [FiatCurrency.USD]);
   if (!price)
-    return { USD: 0, NIM };
+    return { USD: 0, NIM, price: 0 };
 
   const USD = Math.round((balance * price + Number.EPSILON) * 100) / 100;
 
