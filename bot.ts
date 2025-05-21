@@ -198,10 +198,11 @@ async function slotsPerValidator(address: string, chatId: number, block: Block) 
 
 async function getRewardsFromValidator(rewardAddress: string) {
   const [accountSuccess, accountError, account] = await getAccountByAddress({ address:rewardAddress });
-  const [stakerSuccess, stakerError, staker] = await getStakerByAddress({ address:rewardAddress });
+  // If rewardAddress is the same as the validator address, this will fail, ignore it
+  const [_, __, staker] = await getStakerByAddress({ address:rewardAddress });
   
-  if (!accountSuccess || !stakerSuccess) {
-    console.error({ accountError, stakerError });
+  if (!accountSuccess) {
+    console.error({ accountError });
     return { USD: 0, NIM: 0, price: 0 };
   }
   
