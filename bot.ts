@@ -1,4 +1,4 @@
-import { Bot, Context, session, MemorySessionStorage } from "https://deno.land/x/grammy@v1.32.0/mod.ts";
+import { Bot, Context, GrammyError, session, MemorySessionStorage } from "https://deno.land/x/grammy@v1.32.0/mod.ts";
 import { type ChatMember } from "https://deno.land/x/grammy@v1.32.0/types.ts";
 import { chatMembers, type ChatMembersFlavor, } from "https://deno.land/x/grammy_chat_members/mod.ts";
 import { type Conversation, type ConversationFlavor, conversations, createConversation } from "https://deno.land/x/grammy_conversations@v1.2.0/mod.ts";
@@ -155,7 +155,7 @@ const subscription = await subscribeForHeadBlock();
 subscription.addEventListener('data', (event) => {
   const { data: block } = event.detail;
   if (!block || !block.isElectionBlock) return;
-  findSlots(block);
+  findSlots(block).catch((err) => console.error("findSlots failed:", err));
 });
 
 async function findSlots(block: Block) {
@@ -163,7 +163,15 @@ async function findSlots(block: Block) {
 
   for (const { key, value } of validators) {
     const [chatId] = key;
-    await slotsPerValidator(value, chatId, block);
+    try {
+      await slotsPerValidator(value, chatId, block);
+    } catch (err) {
+      if (err instanceof GrammyError && err.error_code === 403) {
+        console.warn(`Bot cannot reach chat ${chatId} (403: ${err.description}); skipping.`);
+      } else {
+        console.error(`Failed to notify chat ${chatId}:`, err);
+      }
+    }
   }
 }
 
