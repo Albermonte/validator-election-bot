@@ -7,7 +7,7 @@ import { subscribeForHeadBlock } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta
 import { initRpcClient } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta.26/client";
 import type { Block } from "jsr:@onmax/nimiq-rpc-client-ts@1.0.0-beta.26/types";
 
-import { ValidationUtils, getExchangeRates, FiatCurrency, CryptoCurrency } from "npm:@nimiq/utils";
+import { ValidationUtils } from "npm:@nimiq/utils";
 import "jsr:@std/dotenv/load";
 
 type Kv = {
@@ -217,11 +217,27 @@ async function getRewardsFromValidator(rewardAddress: string) {
   const balance = (account.balance + (staker?.balance || 0)) / 1e5;
   const NIM = Math.round(balance * 100) / 100;
   
-  const { nim: { usd: price } } = await getExchangeRates([CryptoCurrency.NIM], [FiatCurrency.USD]);
+  const price = await getNimPriceUsd();
   if (!price)
     return { USD: 0, NIM, price: 0 };
 
   const USD = Math.round((balance * price + Number.EPSILON) * 100) / 100;
 
   return { USD, NIM, price };
+}
+
+// NIM/USD price from prices.nim.sh, returns 0 on failure
+async function getNimPriceUsd(): Promise<number> {
+  try {
+    const response = await fetch("https://prices.nim.sh/prices/NIM/now");
+    if (!response.ok) {
+      console.error(`Price API failed: ${response.status} - ${response.statusText}`);
+      return 0;
+    }
+    const { price } = await response.json();
+    return price ?? 0;
+  } catch (error) {
+    console.error("Price API failed:", error);
+    return 0;
+  }
 }
